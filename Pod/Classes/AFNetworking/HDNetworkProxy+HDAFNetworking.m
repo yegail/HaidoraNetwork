@@ -16,7 +16,7 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
 
 @interface HDNetworkProxy (HDNetwork)
 
-@property (nonatomic, strong) AFHTTPRequestOperationManager *manager;
+@property (nonatomic, strong) AFHTTPSessionManager *manager;
 
 @end
 
@@ -24,19 +24,19 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
 
 @dynamic manager;
 
-- (void)setManager:(AFHTTPRequestOperationManager *)manager
+- (void)setManager:(AFHTTPSessionManager *)manager
 {
     objc_setAssociatedObject(self, &kHDNetworkProxy_manager, manager,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-- (AFHTTPRequestOperationManager *)manager
+- (AFHTTPSessionManager *)manager
 {
-    AFHTTPRequestOperationManager *manager =
-        objc_getAssociatedObject(self, &kHDNetworkProxy_manager);
+    AFHTTPSessionManager *manager =
+    objc_getAssociatedObject(self, &kHDNetworkProxy_manager);
     if (nil == manager)
     {
-        manager = [AFHTTPRequestOperationManager manager];
+        manager = [AFHTTPSessionManager manager];
         manager.requestSerializer = [AFHTTPRequestSerializer serializer];
         manager.responseSerializer = [AFHTTPResponseSerializer serializer];
         manager.operationQueue.maxConcurrentOperationCount = 4;
@@ -68,7 +68,7 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
             serializerClass = [AFJSONRequestSerializer class];
         }
     }
-
+    
     // custom Serializer
     if ([request respondsToSelector:@selector(requestSerializerClass)] &&
         [request requestSerializerClass])
@@ -103,7 +103,7 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
             serializerClass = [AFJSONResponseSerializer class];
         }
     }
-
+    
     // custom Serializer
     if ([request respondsToSelector:@selector(responseSerializerClass)] &&
         [request requestSerializerClass])
@@ -130,7 +130,7 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
  */
 - (void)configureManagerwithRequest:(id<HDNetworkRequest>)requeset
 {
-    AFHTTPRequestOperationManager *manager = self.manager;
+    AFHTTPSessionManager *manager = self.manager;
     //设置序列化
     manager.requestSerializer = [[self loadRequestSerializerWith:requeset] serializer];
     manager.responseSerializer = [[self loadResponseSerializerWith:requeset] serializer];
@@ -140,102 +140,91 @@ static char *kHDNetworkProxy_manager = "kHDNetworkProxy_manager";
     // headerFieldValueDictionary
     NSDictionary *requestHeaderField = [self loadRequestHeaderFieldWith:requeset];
     [requestHeaderField
-        enumerateKeysAndObjectsUsingBlock:^(id _Nonnull key, id _Nonnull obj, BOOL *_Nonnull stop) {
-          if ([key isKindOfClass:[NSString class]] && [obj isKindOfClass:[NSString class]])
-          {
-              [manager.requestSerializer setValue:obj forHTTPHeaderField:key];
-          }
-          else
-          {
-              //          YTKLog(@"Error, class of key/value in headerFieldValueDictionary shouldbe
-              //          NSString.");
-          }
-        }];
+     enumerateKeysAndObjectsUsingBlock:^(id _Nonnull key, id _Nonnull obj, BOOL *_Nonnull stop) {
+         if ([key isKindOfClass:[NSString class]] && [obj isKindOfClass:[NSString class]])
+         {
+             [manager.requestSerializer setValue:obj forHTTPHeaderField:key];
+         }
+         else
+         {
+             //          YTKLog(@"Error, class of key/value in headerFieldValueDictionary shouldbe
+             //          NSString.");
+         }
+     }];
     if ([requeset conformsToProtocol:@protocol(HDNetworkAFNetworking)] &&
-        [requeset respondsToSelector:@selector(configureAFHTTPRequestOperationManager:)])
+        [requeset respondsToSelector:@selector(configureAFHTTPSessionManager:)])
     {
-        [(id<HDNetworkAFNetworking>)requeset configureAFHTTPRequestOperationManager:manager];
+        [(id<HDNetworkAFNetworking>)requeset configureAFHTTPSessionManager:manager];
     }
 }
 
-- (NSOperation *)loadRequest:
-                     (id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
-            customURLRequest:(NSURLRequest *)customURLRequest
-                  httpMethod:(HDRequestMethod)method
-                   urlString:(NSString *)URLString
-                  parameters:(id)parameters
-                     success:(void (^)(NSOperation *operation, id responseObject))success
-                     failure:(void (^)(NSOperation *operation, NSError *error))failure
+- (NSURLSessionDataTask *)loadRequest:
+(id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
+                     customURLRequest:(NSURLRequest *)customURLRequest
+                           httpMethod:(HDRequestMethod)method
+                            urlString:(NSString *)URLString
+                           parameters:(id)parameters
+                              success:(void (^)(NSURLSessionDataTask *dataTask, id responseObject))success
+                              failure:(void (^)(NSURLSessionDataTask *dataTask, NSError *error))failure
 {
-    AFHTTPRequestOperationManager *manager = self.manager;
-    AFHTTPRequestOperation *operation;
-
+    AFHTTPSessionManager *manager = self.manager;
+    NSURLSessionDataTask *dataTask;
+    
     //自定义request
     if (nil != customURLRequest)
     {
-        operation = [manager HTTPRequestOperationWithRequest:customURLRequest
-                                                     success:success
-                                                     failure:failure];
-        [manager.operationQueue addOperation:operation];
+        dataTask = [manager dataTaskWithRequest:customURLRequest completionHandler:^(NSURLResponse * _Nonnull response, id  _Nullable responseObject, NSError * _Nullable error) {
+            if (error) {
+                if (failure) {
+                    
+                }
+            }
+        }];
+        [dataTask resume];
     }
     else
     {
         switch (method)
         {
-        case HDRequestMethodGet:
-        {
-            // TODO: 暂时不支持文件下载
-            operation =
-                [manager GET:URLString parameters:parameters success:success failure:failure];
-            break;
-        }
-        case HDRequestMethodPost:
-        {
-            operation =
-                [manager POST:URLString parameters:parameters success:success failure:failure];
-            break;
-        }
-        case HDRequestMethodHead:
-        {
-            operation = [manager HEAD:URLString
-                parameters:parameters
-                success:^(AFHTTPRequestOperation *_Nonnull operation) {
-                  if (success)
-                  {
-                      success(operation, nil);
-                  }
-                }
-                failure:^(AFHTTPRequestOperation *_Nonnull operation, NSError *_Nonnull error) {
-                  if (failure)
-                  {
-                      failure(operation, error);
-                  }
-                }];
-            break;
-        }
-        case HDRequestMethodPut:
-        {
-            operation =
-                [manager PUT:URLString parameters:parameters success:success failure:failure];
-            break;
-        }
-        case HDRequestMethodDelete:
-        {
-            operation =
-                [manager DELETE:URLString parameters:parameters success:success failure:failure];
-            break;
-        }
-        case HDRequestMethodPatch:
-        {
-            operation =
-                [manager PATCH:URLString parameters:parameters success:success failure:failure];
-            break;
-        }
-        default:
-            break;
+            case HDRequestMethodGet:
+            {
+                // TODO: 暂时不支持文件下载
+                dataTask = [manager GET:URLString parameters:parameters success:success failure:failure];
+                break;
+            }
+            case HDRequestMethodPost:
+            {
+                dataTask = [manager POST:URLString parameters:parameters success:success failure:failure];
+                break;
+            }
+            case HDRequestMethodHead:
+            {
+                dataTask = [manager HEAD:URLString parameters:parameters  success:^(NSURLSessionDataTask * _Nonnull task) {
+                    if (success) {
+                        success(task, nil);
+                    }
+                } failure:failure];
+                break;
+            }
+            case HDRequestMethodPut:
+            {
+                dataTask = [manager PUT:URLString parameters:parameters success:success failure:failure];            break;
+            }
+            case HDRequestMethodDelete:
+            {
+                dataTask = [manager DELETE:URLString parameters:parameters success:success failure:failure];
+                break;
+            }
+            case HDRequestMethodPatch:
+            {
+                dataTask = [manager PATCH:URLString parameters:parameters success:success failure:failure];
+                break;
+            }
+            default:
+                break;
         }
     }
-    return operation;
+    return dataTask;
 }
 
 @end

@@ -16,7 +16,7 @@
 #pragma mark
 #pragma mark Config AFNetworking
 
-- (void)configureAFHTTPRequestOperationManager:(AFHTTPRequestOperationManager *)manager;
+- (void)configureAFHTTPSessionManager:(AFHTTPSessionManager *)manager;
 
 @end
 
@@ -35,13 +35,13 @@
 - (void)configureManagerwithRequest:(id<HDNetworkRequest>)requeset;
 
 //创建request
-- (NSOperation *)loadRequest:
-                     (id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
-            customURLRequest:(NSURLRequest *)customURLRequest
-                  httpMethod:(HDRequestMethod)method
-                   urlString:(NSString *)URLString
-                  parameters:(id)parameters
-                     success:(void (^)(NSOperation *operation, id responseObject))success
-                     failure:(void (^)(NSOperation *operation, NSError *error))failure;
+- (NSURLSessionDataTask *)loadRequest:
+(id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
+                     customURLRequest:(NSURLRequest *)customURLRequest
+                           httpMethod:(HDRequestMethod)method
+                            urlString:(NSString *)URLString
+                           parameters:(id)parameters
+                              success:(void (^)(NSURLSessionDataTask *dataTask, id responseObject))success
+                              failure:(void (^)(NSURLSessionDataTask *dataTask, NSError *error))failure;
 
 @end

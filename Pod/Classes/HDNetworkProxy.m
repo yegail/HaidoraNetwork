@@ -23,7 +23,7 @@
     static id sharedInstance = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-      sharedInstance = [[self alloc] init];
+        sharedInstance = [[self alloc] init];
     });
     return sharedInstance;
 }
@@ -31,13 +31,13 @@
 #pragma mark
 #pragma mark Utils
 
-- (NSString *)requestHashKey:(NSOperation *)operation
+- (NSString *)requestHashKey:(NSURLSessionDataTask *)dataTask
 {
-    NSString *key = [NSString stringWithFormat:@"%lu", (unsigned long)[operation hash]];
+    NSString *key = [NSString stringWithFormat:@"%lu", (unsigned long)[dataTask hash]];
     return key;
 }
 
-- (void)addOperation:(NSOperation *)operation
+- (void)addSessionDataTask:(NSURLSessionDataTask *)operation
 {
     if (operation != nil)
     {
@@ -49,7 +49,7 @@
     }
 }
 
-- (void)removeOperation:(NSOperation *)operation
+- (void)removeSessionDataTask:(NSURLSessionDataTask *)operation
 {
     if (operation != nil)
     {
@@ -96,7 +96,7 @@
 #pragma mark Public method
 
 - (NSString *)sendRequest:
-    (id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
+(id<HDNetworkRequest, HDNetworkValidator, HDNetworkRequestCallBack>)request
 {
     NSString *requestID;
     //参数处理
@@ -110,45 +110,45 @@
         //配置请求参数
         [self configureManagerwithRequest:request];
         //创建请求
-        NSOperation *operation;
+        NSURLSessionDataTask *dataTask;
         NSURLRequest *customURLRequest = [self loadCustomURLRequestWith:request];
-
-        operation = [self loadRequest:request
-            customURLRequest:customURLRequest
-            httpMethod:method
-            urlString:URLString
-            parameters:parameters
-            success:^(NSOperation *operation, id responseObject) {
-              //处理成功
-              NSString *requestId = [self requestHashKey:operation];
-              NSOperation *storedOperation = self.requestsRecord[requestId];
-              if (storedOperation)
-              {
-                  NSError *error = nil;
-                  if ([self validatorResponseWith:request response:responseObject error:&error])
-                  {
-                      [self requestFinished:request response:responseObject];
-                  }
-                  else
-                  {
-                      [self requestFailed:request error:error];
-                  }
-              }
-              [self removeOperation:operation];
-            }
-            failure:^(NSOperation *operation, NSError *error) {
-              //处理失败
-              NSString *requestId = [self requestHashKey:operation];
-              NSOperation *storedOperation = self.requestsRecord[requestId];
-              if (storedOperation)
-              {
-                  [self requestFailed:request error:error];
-              }
-              [self removeOperation:operation];
-
-            }];
-        requestID = [self requestHashKey:operation];
-        [self addOperation:operation];
+        
+        dataTask = [self loadRequest:request
+                    customURLRequest:customURLRequest
+                          httpMethod:method
+                           urlString:URLString
+                          parameters:parameters
+                             success:^(NSURLSessionDataTask *dataTask, id responseObject) {
+                                 //处理成功
+                                 NSString *requestId = [self requestHashKey:dataTask];
+                                 NSOperation *storedOperation = self.requestsRecord[requestId];
+                                 if (storedOperation)
+                                 {
+                                     NSError *error = nil;
+                                     if ([self validatorResponseWith:request response:responseObject error:&error])
+                                     {
+                                         [self requestFinished:request response:responseObject];
+                                     }
+                                     else
+                                     {
+                                         [self requestFailed:request error:error];
+                                     }
+                                 }
+                                 [self removeSessionDataTask:dataTask];
+                             }
+                             failure:^(NSURLSessionDataTask *dataTask, NSError *error) {
+                                 //处理失败
+                                 NSString *requestId = [self requestHashKey:dataTask];
+                                 NSOperation *storedOperation = self.requestsRecord[requestId];
+                                 if (storedOperation)
+                                 {
+                                     [self requestFailed:request error:error];
+                                 }
+                                 [self removeSessionDataTask:dataTask];
+                                 
+                             }];
+        requestID = [self requestHashKey:dataTask];
+        [self addSessionDataTask:dataTask];
     }
     else
     {
@@ -160,18 +160,18 @@
 
 - (void)cancelRequest:(NSString *)requestID
 {
-    NSOperation *operation = self.requestsRecord[requestID];
-    [operation cancel];
-    [self removeOperation:operation];
+    NSURLSessionDataTask *dataTask = self.requestsRecord[requestID];
+    [dataTask cancel];
+    [self removeSessionDataTask:dataTask];
 }
 
 - (void)cancelAllRequests
 {
     NSDictionary *requestList = [self.requestsRecord copy];
     [requestList.allKeys
-        enumerateObjectsUsingBlock:^(NSString *requestID, NSUInteger idx, BOOL *_Nonnull stop) {
-          [self cancelRequest:requestID];
-        }];
+     enumerateObjectsUsingBlock:^(NSString *requestID, NSUInteger idx, BOOL *_Nonnull stop) {
+         [self cancelRequest:requestID];
+     }];
 }
 
 @end
